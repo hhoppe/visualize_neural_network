@@ -299,8 +299,12 @@ class MainPlot:
 
 
 # %%
-display_network_graph()
 main_plot = MainPlot()
+
+# %%
+display_network_graph()
+
+# %%
 main_plot.display()
 
 # %% [markdown]
