@@ -295,7 +295,7 @@ class MainPlot:
         [self.center_button, self.reset_button, self.randomize_button, self.fit_button]
     )
     rows = [selectors, *layers, buttons, self.output, self.textarea]
-    IPython.display.display(ipywidgets.VBox(rows))
+    return ipywidgets.VBox(rows)
 
 
 # %%
