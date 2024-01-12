@@ -6,6 +6,9 @@
 # Optimization and interactive control of a 1D -> 1D neural network function.
 
 # %% [markdown]
+# [[**Open this notebook in Colab**]](https://colab.research.google.com/github/hhoppe/visualize_neural_network/blob/main/visualize_neural_network.ipynb)
+
+# %% [markdown]
 # ## Preamble
 
 # %%
