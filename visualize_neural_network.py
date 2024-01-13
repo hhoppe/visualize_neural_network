@@ -27,7 +27,7 @@ import torch
 # %%
 SHOW_SLIDERS = True
 VERBOSE = False
-R = 10
+SLIDER_RADIUS = 10
 
 # %%
 # Numbers of nodes in each layer of the neural network (layer 0 is input, last layer is output):
@@ -208,7 +208,9 @@ class MainPlot:
     self.layer_selector = ipywidgets.RadioButtons(
         options=range(len(LAYER_SIZES)), value=len(LAYER_SIZES[1:]), description='Plot layer:'
     )
-    self.sliders = self.create_sliders() if SHOW_SLIDERS else {}
+    self.sliders = {
+        key: self.make_slider(key, value) for key, value in self.params.items() if SHOW_SLIDERS
+    }
     self.center_button = ipywidgets.Button(description='Center slider ranges')
     self.reset_button = ipywidgets.Button(description='Reset params')
     self.randomize_button = ipywidgets.Button(description='Randomize params')
@@ -229,12 +231,11 @@ class MainPlot:
     self.randomize_button.on_click(lambda button: self.randomize_parameters())
     self.fit_button.on_click(lambda button: self.fit_target())
 
-  def create_sliders(self):
-    a = dict(step=0.01, continuous_update=True)
-    return {
-        key: ipywidgets.FloatSlider(value=value, min=value - R, max=value + R, description=key, **a)
-        for key, value in self.params.items()
-    }
+  def make_slider(self, key, value):
+    vmin, vmax = value - SLIDER_RADIUS, value + SLIDER_RADIUS
+    return ipywidgets.FloatSlider(
+        value=value, min=vmin, max=vmax, description=key, step=0.01, continuous_update=True
+    )
 
   def get_activations(self):
     return [ACTIVATIONS[self.activation_selector.value]] * (len(LAYER_SIZES) - 1) + [identity]
@@ -272,8 +273,8 @@ class MainPlot:
           if slider.value != value:  # Not sure if test is useful.
             slider.value = value  # Bug: https://github.com/jupyter-widgets/ipywidgets/issues/3824.
           if center_sliders:
-            slider.min = value - R
-            slider.max = value + R
+            slider.min = value - SLIDER_RADIUS
+            slider.max = value + SLIDER_RADIUS
     self.update_plot()
 
   def on_slider_change(self):
@@ -283,7 +284,7 @@ class MainPlot:
 
   def center_slider_range(self):
     for slider in self.sliders.values():
-      slider.min, slider.max = slider.value - R, slider.value + R
+      slider.min, slider.max = slider.value - SLIDER_RADIUS, slider.value + SLIDER_RADIUS
 
   def reset_parameters(self):
     self.update_params(get_reset_params())
