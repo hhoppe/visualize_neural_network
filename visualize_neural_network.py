@@ -103,27 +103,40 @@ def neural_network(inputs, params, activations, output_layer_index=10**9):
 
 
 # %%
+def get_random_params(rng):
+  params: dict[str, float] = {}
+
+  for layer_index, layer_size in enumerate(LAYER_SIZES[1:], 1):
+    for node_index in range(layer_size):
+      sum_weight = 0
+      for prev_index in range(LAYER_SIZES[layer_index - 1]):
+        weight = rng.random() * 2 - 1
+        params[f'w{layer_index}{node_index}{prev_index}'] = weight
+        sum_weight += weight
+      weight = rng.random() * (abs(sum_weight) + 1e-2) * (-1 if sum_weight > 0 else 1)
+      params[f'b{layer_index}{node_index}'] = weight
+
+  return params
+
+
+# %%
 def get_reset_params():
-  d: dict[str, float] = {}
+  params: dict[str, float] = {}
 
   if LAYER_SIZES == (1, 3, 1):
-    d |= dict(w100=1.3, b10=-0.2, w110=3.0, b11=-2.1, w120=2.5, b12=-1.0)
-    d |= dict(w200=7.0, w201=4.0, w202=-5.8, b20=-1.0)
+    params |= dict(w100=1.3, b10=-0.2, w110=3.0, b11=-2.1, w120=2.5, b12=-1.0)
+    params |= dict(w200=7.0, w201=4.0, w202=-5.8, b20=-1.0)
 
   elif LAYER_SIZES == (1, 2, 2, 1):
-    d |= dict(w100=-3.45, b10=2.38, w110=6.88, b11=-2.76)
-    d |= dict(w200=-1.40, w201=-0.59, b20=2.03, w210=-0.78, w211=-0.50, b21=1.48)
-    d |= dict(w300=1.93, w301=-1.15, b30=0.17)
+    params |= dict(w100=-3.45, b10=2.38, w110=6.88, b11=-2.76)
+    params |= dict(w200=-1.40, w201=-0.59, b20=2.03, w210=-0.78, w211=-0.50, b21=1.48)
+    params |= dict(w300=1.93, w301=-1.15, b30=0.17)
 
   else:
     rng = np.random.default_rng(0)  # Deterministic.
-    for layer_index, layer_size in enumerate(LAYER_SIZES[1:], 1):
-      for node_index in range(layer_size):
-        for prev_index in range(LAYER_SIZES[layer_index - 1]):
-          d[f'w{layer_index}{node_index}{prev_index}'] = rng.random() * 2 - 1
-        d[f'b{layer_index}{node_index}'] = rng.random() * 2 - 1
+    params = get_random_params(rng)
 
-  return d
+  return params
 
 
 # %% [markdown]
@@ -164,15 +177,17 @@ def display_network_graph():
   pos = {}
   for layer_index, layer_size in enumerate(LAYER_SIZES):
     for node_index in range(layer_size):
-      graph.add_node(node := f'n{layer_index}{node_index}')
+      node = f'n{layer_index}{node_index}'
+      graph.add_node(node)
       pos[node] = layer_index * 6, ((layer_size - 1) / 2 - node_index) * 4
       if layer_index > 0:
         for prev_index in range(LAYER_SIZES[layer_index - 1]):
+          prev_node = f'n{layer_index - 1}{prev_index}'
           label = f'w{layer_index}{node_index}{prev_index}'
-          graph.add_edge(f'n{layer_index - 1}{prev_index}', node, label=label)
+          graph.add_edge(prev_node, node, label=label)
 
-  _, ax = plt.subplots(figsize=(12, 6), dpi=70)
-  networkx.draw(graph, pos, ax=ax, node_size=800, node_color='lightblue', with_labels=True)
+  _, _ = plt.subplots(figsize=(12, 6), dpi=70)
+  networkx.draw(graph, pos, node_size=800, node_color='lightblue', with_labels=True)
   edge_labels = networkx.get_edge_attributes(graph, 'label')
   networkx.draw_networkx_edge_labels(graph, pos, edge_labels=edge_labels, font_size=12)
   plt.show()
@@ -180,7 +195,7 @@ def display_network_graph():
 
 # %%
 class MainPlot:
-  """User interface for main plot."""
+  """User interface for the main plot."""
 
   def __init__(self):
     self.params = get_reset_params()
@@ -203,9 +218,9 @@ class MainPlot:
         rows=len(LAYER_SIZES[1:]), layout={'width': '800px'}, disabled=True
     )
 
-    self.target_selector.observe(lambda change: self.update_plot(), names='value')
-    self.activation_selector.observe(lambda change: self.update_plot(), names='value')
-    self.layer_selector.observe(lambda change: self.update_plot(), names='value')
+    self.target_selector.observe(lambda change: self.update_plot(), 'value')
+    self.activation_selector.observe(lambda change: self.update_plot(), 'value')
+    self.layer_selector.observe(lambda change: self.update_plot(), 'value')
     for slider in self.sliders.values():
       slider.observe(lambda change: self.on_slider_change(), 'value')
     self.center_button.on_click(lambda button: self.center_slider_range())
@@ -242,7 +257,7 @@ class MainPlot:
       for node_index, node in enumerate(output_nodes):
         ax.plot(x, node, label=f'node n{output_layer_index}{node_index}')
       ax.set(xlabel='x', ylabel='y=f(x)', ylim=(-2, 2))
-      ax.grid(True)
+      ax.grid(True, lw=0.3)
       ax.legend(loc='upper right')
       plt.show()
 
@@ -251,7 +266,7 @@ class MainPlot:
     if SHOW_SLIDERS:
       with contextlib.ExitStack() as stack:
         for slider in reversed(self.sliders.values()):
-          stack.enter_context(slider.hold_trait_notifications())
+          stack.enter_context(slider.hold_trait_notifications())  # Ideally, we'd prefer a "mute".
         for key, slider in self.sliders.items():
           value = self.params[key]
           if slider.value != value:  # Not sure if test is useful.
@@ -275,7 +290,7 @@ class MainPlot:
 
   def randomize_parameters(self):
     rng = np.random.default_rng()  # Non-deterministic.
-    self.update_params({key: rng.random() * 2 - 1 for key in self.params})
+    self.update_params(get_random_params(rng))
 
   def fit_target(self):
     self.update_params(
