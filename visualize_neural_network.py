@@ -27,7 +27,7 @@ import torch
 # %%
 SHOW_SLIDERS = True
 VERBOSE = False
-SLIDER_RADIUS = 10
+SLIDER_RADIUS = 10.0
 
 # %%
 # Numbers of nodes in each layer of the neural network (layer 0 is input, last layer is output):
@@ -198,6 +198,7 @@ class MainPlot:
   """User interface for the main plot."""
 
   def __init__(self):
+    self.mute_updates = True
     self.params = get_reset_params()
     self.target_selector = ipywidgets.RadioButtons(
         options=list(TARGETS), value='sine', description='Target function:'
@@ -224,7 +225,7 @@ class MainPlot:
     self.activation_selector.observe(lambda change: self.update_plot(), 'value')
     self.layer_selector.observe(lambda change: self.update_plot(), 'value')
     for slider in self.sliders.values():
-      slider.observe(lambda change: self.on_slider_change(), 'value')
+      slider.observe(self.on_slider_change, 'value')
     self.center_button.on_click(lambda button: self.center_slider_range())
     # (Due to a bug in slider value update, we may need to press a button more than once.)
     self.reset_button.on_click(lambda button: self.reset_parameters())
@@ -232,15 +233,20 @@ class MainPlot:
     self.fit_button.on_click(lambda button: self.fit_target())
 
   def make_slider(self, key, value):
-    vmin, vmax = value - SLIDER_RADIUS, value + SLIDER_RADIUS
+    vmin, vmax = 0.0 - SLIDER_RADIUS, 0.0 + SLIDER_RADIUS
+    value = self.fix_slider_value(value, vmin, vmax)
     return ipywidgets.FloatSlider(
-        value=value, min=vmin, max=vmax, description=key, step=0.01, continuous_update=True
+        value=value, min=vmin, max=vmax, description=key, step=None, continuous_update=True
     )
 
   def get_activations(self):
     return [ACTIVATIONS[self.activation_selector.value]] * (len(LAYER_SIZES) - 1) + [identity]
 
   def update_plot(self):
+    if self.mute_updates:
+      return
+    if VERBOSE:
+      print('update_plot')
     text_lines = []
     for layer_index in range(1, len(LAYER_SIZES)):
       t = ', '.join(f'{k}={v:.2f}' for k, v in self.params.items() if int(k[1]) == layer_index)
@@ -262,25 +268,33 @@ class MainPlot:
       ax.legend(loc='upper right')
       plt.show()
 
-  def update_params(self, new_params, center_sliders=True):
+  def fix_slider_value(self, value, vmin, vmax):
+    """Avoid an extra slider 'change' event due to subsequent round-off."""
+    value = np.float32(value).item()
+    value = vmin + (value - vmin) / (vmax - vmin) * (vmax - vmin)
+    return value
+
+  def update_params(self, new_params):
+    old_mute_updates, self.mute_updates = self.mute_updates, True
     self.params = new_params
     if SHOW_SLIDERS:
       with contextlib.ExitStack() as stack:
         for slider in reversed(self.sliders.values()):
           stack.enter_context(slider.hold_trait_notifications())  # Ideally, we'd prefer a "mute".
         for key, slider in self.sliders.items():
-          value = self.params[key]
-          if slider.value != value:  # Not sure if test is useful.
-            slider.value = value  # Bug: https://github.com/jupyter-widgets/ipywidgets/issues/3824.
-          if center_sliders:
+          value = self.fix_slider_value(self.params[key], slider.min, slider.max)
+          slider.value = value  # Bug: https://github.com/jupyter-widgets/ipywidgets/issues/3824.
+          if value < slider.min:
             slider.min = value - SLIDER_RADIUS
+          if value > slider.max:
             slider.max = value + SLIDER_RADIUS
+    self.mute_updates = old_mute_updates
     self.update_plot()
 
-  def on_slider_change(self):
-    self.update_params(
-        {key: slider.value for key, slider in self.sliders.items()}, center_sliders=False
-    )
+  def on_slider_change(self, change):
+    if 0:
+      print(f'{change=}')
+    self.update_params({key: slider.value for key, slider in self.sliders.items()})
 
   def center_slider_range(self):
     for slider in self.sliders.values():
@@ -294,12 +308,14 @@ class MainPlot:
     self.update_params(get_random_params(rng))
 
   def fit_target(self):
-    self.update_params(
-        fit_neural_network(self.params, self.get_activations(), TARGETS[self.target_selector.value])
+    params = fit_neural_network(
+        self.params, self.get_activations(), TARGETS[self.target_selector.value]
     )
+    if VERBOSE:
+      print(f'{params=}')
+    self.update_params(params)
 
   def display(self):
-    self.reset_parameters()
     selectors = ipywidgets.HBox(
         [self.target_selector, self.activation_selector, self.layer_selector]
     )
@@ -311,6 +327,8 @@ class MainPlot:
         [self.center_button, self.reset_button, self.randomize_button, self.fit_button]
     )
     rows = [selectors, *layers, buttons, self.output, self.textarea]
+    self.mute_updates = False
+    self.update_plot()
     IPython.display.display(ipywidgets.VBox(rows))
 
 
