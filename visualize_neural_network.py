@@ -263,13 +263,13 @@ class MainPlot:
       )
       for node_index, node in enumerate(output_nodes):
         ax.plot(x, node, label=f'node n{output_layer_index}{node_index}')
-      ax.set(xlabel='x', ylabel='y=f(x)', ylim=(-2, 2))
+      ax.set(xlabel='Input (node n00)', ylabel='Output', ylim=(-2, 2))
       ax.grid(True, lw=0.3)
       ax.legend(loc='upper right')
       plt.show()
 
   def fix_slider_value(self, value, vmin, vmax):
-    """Avoid an extra slider 'change' event due to subsequent round-off."""
+    """Modify value to avoid an extra slider 'change' event due to subsequent round-off."""
     value = np.float32(value).item()
     value = vmin + (value - vmin) / (vmax - vmin) * (vmax - vmin)
     return value
