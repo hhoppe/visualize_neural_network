@@ -236,7 +236,7 @@ class MainPlot:
     vmin, vmax = 0.0 - SLIDER_RADIUS, 0.0 + SLIDER_RADIUS
     value = self.fix_slider_value(value, vmin, vmax)
     return ipywidgets.FloatSlider(
-        value=value, min=vmin, max=vmax, description=key, step=None, continuous_update=True
+        value=value, min=vmin, max=vmax, description=key, step=1e-20, continuous_update=True
     )
 
   def get_activations(self):
