@@ -133,7 +133,7 @@ def get_reset_params():
     params |= dict(w300=1.93, w301=-1.15, b30=0.17)
 
   else:
-    rng = np.random.default_rng(0)  # Deterministic.
+    rng = np.random.default_rng(1)  # Deterministic.
     params = get_random_params(rng)
 
   return params
@@ -319,7 +319,9 @@ class MainPlot:
     selectors = ipywidgets.HBox(
         [self.target_selector, self.activation_selector, self.layer_selector]
     )
-    layers = [ipywidgets.Label('Weight and bias parameters in each network layer:')]
+    layers: list[ipywidgets.Widget] = [
+        ipywidgets.Label('Weight and bias parameters in each network layer:')
+    ]
     for layer_index in range(1, len(LAYER_SIZES)):
       layer_sliders = [slider for key, slider in self.sliders.items() if int(key[1]) == layer_index]
       layers.append(ipywidgets.HBox([ipywidgets.Label(f'Layer {layer_index}:')] + layer_sliders))
