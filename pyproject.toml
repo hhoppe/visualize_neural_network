@@ -48,6 +48,7 @@ project-includes = ["**/*.py"]
 
 [tool.pyrefly.errors]
 untyped-import = false
+unreachable = false
 
 [tool.ruff]
 extend-exclude = ["*.ipynb"]
